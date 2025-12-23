@@ -36,8 +36,6 @@ For installer options:
 curl -fsSL https://christitus.com/linux | sh -s -- --help
 ```
 
-Shammy123456
-
 ## ⬇️ Installation
 
 Linutil is also available as a package in various repositories:
