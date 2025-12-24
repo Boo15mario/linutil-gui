@@ -703,26 +703,54 @@ fn build_confirmation_dialog(
         .default_width(420)
         .default_height(180)
         .build();
+    dialog.set_accessible_role(gtk::AccessibleRole::AlertDialog);
+    dialog.update_property(&[
+        gtk::accessible::Property::Label(title),
+        gtk::accessible::Property::Description(message),
+    ]);
 
     let box_root = gtk::Box::new(gtk::Orientation::Vertical, 12);
     box_root.set_margin_top(12);
     box_root.set_margin_bottom(12);
     box_root.set_margin_start(12);
     box_root.set_margin_end(12);
-    let label = gtk::Label::new(Some(message));
-    label.set_wrap(true);
-    label.set_xalign(0.0);
+    let label = gtk::TextView::new();
+    label.set_editable(false);
+    label.set_cursor_visible(false);
+    label.set_wrap_mode(gtk::WrapMode::WordChar);
+    label.set_focusable(true);
+    label.set_accessible_role(gtk::AccessibleRole::TextBox);
+    label.buffer().set_text(message);
+    label.update_property(&[
+        gtk::accessible::Property::Label("Commands to run"),
+        gtk::accessible::Property::Description(message),
+        gtk::accessible::Property::ReadOnly(true),
+    ]);
 
     let button_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     button_box.set_halign(gtk::Align::End);
     let cancel = gtk::Button::with_label("Cancel");
     let run = gtk::Button::with_label("Run");
+    cancel.update_property(&[
+        gtk::accessible::Property::Label("Cancel"),
+        gtk::accessible::Property::Description("Cancel running the selected commands."),
+    ]);
+    run.update_property(&[
+        gtk::accessible::Property::Label("Run"),
+        gtk::accessible::Property::Description("Run the selected commands."),
+    ]);
     button_box.append(&cancel);
     button_box.append(&run);
 
     box_root.append(&label);
     box_root.append(&button_box);
     dialog.set_child(Some(&box_root));
+    dialog.update_relation(&[
+        gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()]),
+        gtk::accessible::Relation::DescribedBy(&[label.upcast_ref()]),
+    ]);
+    dialog.set_default_widget(Some(&run));
+    gtk::prelude::GtkWindowExt::set_focus(&dialog, Some(&label));
     dialog.show();
     (dialog, run, cancel)
 }
@@ -735,15 +763,33 @@ fn show_info_dialog(parent: &gtk::Window, title: &str, message: &str) {
         .default_width(420)
         .default_height(180)
         .build();
+    dialog.set_accessible_role(gtk::AccessibleRole::AlertDialog);
+    dialog.update_property(&[
+        gtk::accessible::Property::Label(title),
+        gtk::accessible::Property::Description(message),
+    ]);
 
     let box_root = gtk::Box::new(gtk::Orientation::Vertical, 12);
     box_root.set_margin_top(12);
     box_root.set_margin_bottom(12);
     box_root.set_margin_start(12);
     box_root.set_margin_end(12);
-    let label = gtk::Label::new(Some(message));
-    label.set_wrap(true);
-    label.set_xalign(0.0);
+    let label = gtk::TextView::new();
+    label.set_editable(false);
+    label.set_cursor_visible(false);
+    label.set_wrap_mode(gtk::WrapMode::WordChar);
+    label.set_focusable(true);
+    label.set_accessible_role(gtk::AccessibleRole::TextBox);
+    label.buffer().set_text(message);
+    label.update_property(&[
+        gtk::accessible::Property::Label(title),
+        gtk::accessible::Property::Description(message),
+        gtk::accessible::Property::ReadOnly(true),
+    ]);
+    dialog.update_relation(&[
+        gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()]),
+        gtk::accessible::Relation::DescribedBy(&[label.upcast_ref()]),
+    ]);
     let close = gtk::Button::with_label("Close");
     close.set_halign(gtk::Align::End);
     box_root.append(&label);

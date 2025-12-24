@@ -43,6 +43,7 @@ impl IntoIterator for TabList {
 pub fn get_tabs(validate: bool) -> TabList {
     let temp_dir = TempDir::with_prefix("linutil_scripts").unwrap();
     let tab_files = TabDirectories::get_tabs(&temp_dir);
+    let desktop_hint = current_desktop_label();
 
     let tabs: Vec<_> = tab_files
         .into_iter()
@@ -53,6 +54,9 @@ pub fn get_tabs(validate: bool) -> TabList {
 
             if validate {
                 filter_entries(&mut tab_data.data);
+            }
+            if tab_data.name == "System Setup" {
+                annotate_desktop_env_entries(&mut tab_data.data, &desktop_hint);
             }
             (tab_data, directory)
         })
@@ -178,6 +182,42 @@ fn filter_entries(entries: &mut Vec<Entry>) {
             true
         }
     });
+}
+
+fn current_desktop_label() -> String {
+    let vars = ["XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION"];
+    for var in vars {
+        if let Ok(value) = std::env::var(var) {
+            let desktop = value.split(':').find(|part| !part.is_empty()).unwrap_or("");
+            if !desktop.is_empty() {
+                return desktop.to_string();
+            }
+        }
+    }
+    "Unknown".to_string()
+}
+
+fn annotate_desktop_env_entries(entries: &mut [Entry], desktop: &str) {
+    for entry in entries {
+        if entry.name == "Install Desktop Environment"
+            || entry.name == "Uninstall Desktop Environment"
+        {
+            if !entry.description.contains("Detected desktop:") {
+                if entry.description.is_empty() {
+                    entry.description = format!("Detected desktop: {desktop}.");
+                } else {
+                    entry.description = format!(
+                        "{} Detected desktop: {}.",
+                        entry.description.trim_end(),
+                        desktop
+                    );
+                }
+            }
+        }
+        if let EntryType::Entries(ref mut children) = entry.entry_type {
+            annotate_desktop_env_entries(children, desktop);
+        }
+    }
 }
 
 fn create_directory(
