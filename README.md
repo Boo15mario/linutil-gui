@@ -129,7 +129,7 @@ For comprehensive information on how to use Linutil, visit the [Linutil Official
 
 ## 🛠 Contributing
 
-We welcome contributions from the community! Before you start, please review our [Contributing Guidelines](.github/CONTRIBUTING.md) to understand how to make the most effective and efficient contributions.
+We welcome contributions from the community! Before you start, please review our [Contributing Guidelines](.github/CONTRIBUTING.md) and [Repository Guidelines](AGENTS.md).
 
 [Official LinUtil Roadmap](https://chris-titus-docs.github.io/linutil-docs/roadmap/)
 
