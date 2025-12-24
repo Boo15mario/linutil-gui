@@ -5,7 +5,7 @@ use crate::tips;
 use gtk4 as gtk;
 use gtk::prelude::*;
 use gtk::glib::source::timeout_add_local;
-use gtk::glib::ControlFlow;
+use gtk::glib::{ControlFlow, Propagation};
 use linutil_core::{Command, Config, ListNode, TabList};
 #[cfg(unix)]
 use nix::unistd::Uid;
@@ -109,21 +109,48 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
 
     let top_bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     let back_button = gtk::Button::with_label("Back");
+    back_button.update_property(&[
+        gtk::accessible::Property::Label("Back"),
+        gtk::accessible::Property::Description(
+            "Go back to the previous view or clear the current search.",
+        ),
+    ]);
     let multi_select_toggle = gtk::ToggleButton::with_label("Multi-select");
+    multi_select_toggle.update_property(&[
+        gtk::accessible::Property::Label("Multi-select"),
+        gtk::accessible::Property::Description("Toggle selecting multiple commands at once."),
+    ]);
     let search_entry = gtk::SearchEntry::new();
     search_entry.set_hexpand(true);
+    search_entry.set_placeholder_text(Some("Search commands"));
+    search_entry.update_property(&[
+        gtk::accessible::Property::Label("Search commands"),
+        gtk::accessible::Property::Description("Type to filter commands by name."),
+        gtk::accessible::Property::Placeholder("Search commands"),
+    ]);
     let run_button = gtk::Button::with_label("Run");
     run_button.set_sensitive(false);
+    run_button.update_property(&[
+        gtk::accessible::Property::Label("Run"),
+        gtk::accessible::Property::Description("Run the selected command(s)."),
+    ]);
     top_bar.append(&back_button);
     top_bar.append(&multi_select_toggle);
     top_bar.append(&search_entry);
     top_bar.append(&run_button);
 
     let content_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    content_box.set_hexpand(true);
+    content_box.set_vexpand(true);
 
     let tab_list = gtk::ListBox::new();
     tab_list.set_selection_mode(gtk::SelectionMode::Single);
     tab_list.add_css_class("tab-list");
+    tab_list.set_focusable(true);
+    tab_list.update_property(&[
+        gtk::accessible::Property::Label("Tab list"),
+        gtk::accessible::Property::Description("Select a tab to change command categories."),
+    ]);
     let state_ref = state.borrow();
     for tab in state_ref.tabs.iter() {
         let label = gtk::Label::new(Some(&format!(
@@ -133,6 +160,10 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
         )));
         label.set_xalign(0.0);
         let row = gtk::ListBoxRow::new();
+        row.update_property(&[gtk::accessible::Property::Label(&format!(
+            "Tab: {}",
+            tab.name
+        ))]);
         row.set_child(Some(&label));
         tab_list.append(&row);
     }
@@ -142,22 +173,40 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
     let tab_scroll = gtk::ScrolledWindow::new();
     tab_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
     tab_scroll.set_min_content_width(240);
+    tab_scroll.set_vexpand(true);
     tab_scroll.set_child(Some(&tab_list));
 
     let right_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    right_box.set_hexpand(true);
+    right_box.set_vexpand(true);
     let path_label = gtk::Label::new(None);
     path_label.set_xalign(0.0);
     path_label.add_css_class("path-label");
+    path_label.update_property(&[
+        gtk::accessible::Property::Label("Current path"),
+        gtk::accessible::Property::Description("Shows the current category path."),
+    ]);
 
     let list_box = gtk::ListBox::new();
     list_box.set_selection_mode(gtk::SelectionMode::Single);
+    list_box.set_focusable(true);
+    list_box.update_property(&[
+        gtk::accessible::Property::Label("Command list"),
+        gtk::accessible::Property::Description("Select a command to view details and run it."),
+    ]);
     let list_scroll = gtk::ScrolledWindow::new();
     list_scroll.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    list_scroll.set_hexpand(true);
+    list_scroll.set_vexpand(true);
     list_scroll.set_child(Some(&list_box));
 
     let info_label = gtk::Label::new(Some("Select a command to view its description."));
     info_label.set_xalign(0.0);
     info_label.set_wrap(true);
+    info_label.update_property(&[
+        gtk::accessible::Property::Label("Command description"),
+        gtk::accessible::Property::Description("Displays details about the selected command."),
+    ]);
 
     #[cfg(feature = "tips")]
     let tip_label = {
@@ -165,6 +214,10 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
         let label = gtk::Label::new(Some(&format!("Tip: {tip}")));
         label.set_xalign(0.0);
         label.set_wrap(true);
+        label.update_property(&[
+            gtk::accessible::Property::Label("Tip"),
+            gtk::accessible::Property::Description("Displays a usage tip."),
+        ]);
         label
     };
 
@@ -249,11 +302,12 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
     let run_button_clone = run_button.clone();
     let back_button_clone = back_button.clone();
     let info_label_clone = info_label.clone();
+    let search_entry_clone = search_entry.clone();
     back_button.connect_clicked(move |_| {
         let mut state = state_clone.borrow_mut();
         if !state.filter.is_empty() {
             state.filter.clear();
-            search_entry.set_text("");
+            search_entry_clone.set_text("");
         } else if state.visit_stack.len() > 1 {
             state.visit_stack.pop();
         }
@@ -297,6 +351,49 @@ fn build_ui(app: &gtk::Application, args: Rc<Args>) {
         run_button_clone.set_sensitive(has_command);
         info_label_clone.set_text(desc.as_deref().unwrap_or("Select a command to view its description."));
     });
+
+    let search_entry_clone = search_entry.clone();
+    let list_box_clone = list_box.clone();
+    let tab_list_clone = tab_list.clone();
+    let run_button_clone = run_button.clone();
+    let back_button_clone = back_button.clone();
+    let key_controller = gtk::EventControllerKey::new();
+    key_controller.connect_key_pressed(move |_, key, _, modifiers| {
+        let ctrl = modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK);
+        let alt = modifiers.contains(gtk::gdk::ModifierType::ALT_MASK);
+        let key_char = key.to_unicode().map(|c| c.to_ascii_lowercase());
+
+        if ctrl && key_char == Some('f') {
+            search_entry_clone.grab_focus();
+            search_entry_clone.select_region(0, -1);
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('l') {
+            list_box_clone.grab_focus();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('t') {
+            tab_list_clone.grab_focus();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('r') {
+            run_button_clone.emit_clicked();
+            return Propagation::Stop;
+        }
+        if alt && key.name().as_deref() == Some("Left") {
+            back_button_clone.emit_clicked();
+            return Propagation::Stop;
+        }
+        if key.name().as_deref() == Some("Escape") {
+            if !search_entry_clone.text().is_empty() {
+                search_entry_clone.set_text("");
+                search_entry_clone.grab_focus();
+                return Propagation::Stop;
+            }
+        }
+        Propagation::Proceed
+    });
+    window.add_controller(key_controller);
 
     let state_clone = state.clone();
     let window_clone = window.clone();
@@ -405,26 +502,34 @@ fn refresh_list(
     back_button: &gtk::Button,
     info_label: &gtk::Label,
 ) {
-    let mut state = state.borrow_mut();
-    build_entries(&mut state);
+    let (entries, theme, multi_select, path_text, back_enabled) = {
+        let mut state = state.borrow_mut();
+        build_entries(&mut state);
+        let entries = state.entries.clone();
+        let theme = state.theme;
+        let multi_select = state.multi_select;
+        let path_text = path_label_text(&state);
+        let back_enabled = !state.filter.is_empty() || state.visit_stack.len() > 1;
+        (entries, theme, multi_select, path_text, back_enabled)
+    };
 
     clear_list_box(list_box);
-    for entry in &state.entries {
-        let label = gtk::Label::new(Some(&format_entry(&state, entry)));
+    for entry in &entries {
+        let label = gtk::Label::new(Some(&format_entry(theme, multi_select, entry)));
         label.set_xalign(0.0);
         let row = gtk::ListBoxRow::new();
         row.set_child(Some(&label));
         list_box.append(&row);
     }
 
-    list_box.set_selection_mode(if state.multi_select {
+    list_box.set_selection_mode(if multi_select {
         gtk::SelectionMode::Multiple
     } else {
         gtk::SelectionMode::Single
     });
 
-    update_path_label(&state, path_label);
-    back_button.set_sensitive(!state.filter.is_empty() || state.visit_stack.len() > 1);
+    path_label.set_text(&path_text);
+    back_button.set_sensitive(back_enabled);
     run_button.set_sensitive(false);
     info_label.set_text("Select a command to view its description.");
 }
@@ -474,24 +579,23 @@ fn build_entries(state: &mut AppState) {
     }
 }
 
-fn format_entry(state: &AppState, entry: &ListEntry) -> String {
+fn format_entry(theme: Theme, multi_select: bool, entry: &ListEntry) -> String {
     if entry.is_up_dir {
         return ".. (Up)".to_string();
     }
     let Some(node) = &entry.node else { return String::new() };
     if entry.has_children {
-        format!("{} {}", state.theme.dir_icon(), node.name)
-    } else if state.multi_select && !node.multi_select {
-        format!("{} {} (single only)", state.theme.cmd_icon(), node.name)
+        format!("{} {}", theme.dir_icon(), node.name)
+    } else if multi_select && !node.multi_select {
+        format!("{} {} (single only)", theme.cmd_icon(), node.name)
     } else {
-        format!("{} {}", state.theme.cmd_icon(), node.name)
+        format!("{} {}", theme.cmd_icon(), node.name)
     }
 }
 
-fn update_path_label(state: &AppState, label: &gtk::Label) {
+fn path_label_text(state: &AppState) -> String {
     if !state.filter.is_empty() {
-        label.set_text("Search results");
-        return;
+        return "Search results".to_string();
     }
     let tab_name = &state.tabs[state.current_tab].name;
     let tree = &state.tabs[state.current_tab].tree;
@@ -501,7 +605,7 @@ fn update_path_label(state: &AppState, label: &gtk::Label) {
             parts.push(node.value().name.clone());
         }
     }
-    label.set_text(&parts.join(" / "));
+    parts.join(" / ")
 }
 
 fn describe_selection(
@@ -659,6 +763,8 @@ fn open_command_window(app: &gtk::Application, commands: Vec<Rc<ListNode>>) {
         .build();
 
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    root_box.set_hexpand(true);
+    root_box.set_vexpand(true);
     root_box.set_margin_top(12);
     root_box.set_margin_bottom(12);
     root_box.set_margin_start(12);
@@ -668,9 +774,19 @@ fn open_command_window(app: &gtk::Application, commands: Vec<Rc<ListNode>>) {
     let status_label = gtk::Label::new(Some("Running..."));
     status_label.set_xalign(0.0);
     status_label.set_hexpand(true);
+    status_label.update_property(&[gtk::accessible::Property::Label("Command status")]);
     let stop_button = gtk::Button::with_label("Stop");
     let save_button = gtk::Button::with_label("Save Log");
     let close_button = gtk::Button::with_label("Close");
+    stop_button.update_property(&[
+        gtk::accessible::Property::Label("Stop"),
+        gtk::accessible::Property::Description("Stop the running command."),
+    ]);
+    save_button.update_property(&[
+        gtk::accessible::Property::Label("Save log"),
+        gtk::accessible::Property::Description("Save the command output to a file."),
+    ]);
+    close_button.update_property(&[gtk::accessible::Property::Label("Close")]);
     status_box.append(&status_label);
     status_box.append(&stop_button);
     status_box.append(&save_button);
@@ -679,12 +795,25 @@ fn open_command_window(app: &gtk::Application, commands: Vec<Rc<ListNode>>) {
     let output_view = gtk::TextView::new();
     output_view.set_monospace(true);
     output_view.set_editable(false);
+    output_view.update_property(&[
+        gtk::accessible::Property::Label("Command output"),
+        gtk::accessible::Property::Description("Live output from the command."),
+    ]);
     let output_scroll = gtk::ScrolledWindow::new();
     output_scroll.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    output_scroll.set_hexpand(true);
+    output_scroll.set_vexpand(true);
     output_scroll.set_child(Some(&output_view));
 
     let input_entry = gtk::Entry::new();
     input_entry.set_placeholder_text(Some("Type input for the command and press Enter"));
+    input_entry.update_property(&[
+        gtk::accessible::Property::Label("Command input"),
+        gtk::accessible::Property::Description(
+            "Type input and press Enter to send it to the command.",
+        ),
+        gtk::accessible::Property::Placeholder("Type input for the command and press Enter"),
+    ]);
 
     root_box.append(&status_box);
     root_box.append(&output_scroll);
@@ -748,6 +877,40 @@ fn open_command_window(app: &gtk::Application, commands: Vec<Rc<ListNode>>) {
 
     let window_clone = window.clone();
     close_button.connect_clicked(move |_| window_clone.close());
+
+    let input_entry_clone = input_entry.clone();
+    let output_view_clone = output_view.clone();
+    let stop_button_clone = stop_button.clone();
+    let save_button_clone = save_button.clone();
+    let close_button_clone = close_button.clone();
+    let key_controller = gtk::EventControllerKey::new();
+    key_controller.connect_key_pressed(move |_, key, _, modifiers| {
+        let ctrl = modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK);
+        let key_char = key.to_unicode().map(|c| c.to_ascii_lowercase());
+
+        if ctrl && key_char == Some('s') {
+            save_button_clone.emit_clicked();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('w') {
+            close_button_clone.emit_clicked();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('k') {
+            stop_button_clone.emit_clicked();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('i') {
+            input_entry_clone.grab_focus();
+            return Propagation::Stop;
+        }
+        if ctrl && key_char == Some('o') {
+            output_view_clone.grab_focus();
+            return Propagation::Stop;
+        }
+        Propagation::Proceed
+    });
+    window.add_controller(key_controller);
 
     window.show();
 }
