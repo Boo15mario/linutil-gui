@@ -558,7 +558,7 @@ fn build_entries(state: &mut AppState) {
         }
     } else {
         let query = state.filter.to_lowercase();
-        for (tab_index, tab) in state.tabs.iter().enumerate() {
+        for tab in state.tabs.iter() {
             let mut stack = vec![tab.tree.root().id()];
             while let Some(node_id) = stack.pop() {
                 let node = tab.tree.get(node_id).unwrap();

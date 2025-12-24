@@ -37,12 +37,14 @@ impl Theme {
 }
 
 impl Theme {
+    #[allow(dead_code)]
     pub fn next(&mut self) {
         let position = *self as usize;
         let types = Theme::value_variants();
         *self = types[(position + 1) % types.len()];
     }
 
+    #[allow(dead_code)]
     pub fn prev(&mut self) {
         let position = *self as usize;
         let types = Theme::value_variants();
