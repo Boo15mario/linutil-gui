@@ -5,6 +5,7 @@
 [![Crates.io Version](https://img.shields.io/crates/v/linutil_tui?style=for-the-badge&color=%23af3a03)](https://crates.io/crates/linutil_tui)
 [![](https://dcbadge.limes.pink/api/server/https://discord.gg/RUbZUZyByQ?theme=default-inverted&style=for-the-badge)](https://discord.gg/RUbZUZyByQ)
 ![Preview](/.github/preview.gif)
+<p align="center"><i>The above preview was generated with the help of <a href="https://github.com/charmbracelet/vhs">vhs</a>, give them a :star:!</i></p>
 
 **Linutil** is a distro-agnostic toolbox designed to simplify everyday Linux tasks. It helps you set up applications and optimize your system for specific use cases. The utility is actively developed in Rust 🦀, providing performance and reliability.
 
@@ -145,7 +146,7 @@ Thank you to everyone who has contributed to the development of Linutil. Your ef
 
 - 2024/07 - Original Linutil Rust TUI was developed by [@JustLinuxUser](https://github.com/JustLinuxUser).
 - 2024/09 - TabList (Left Column) and various Rust Core/TUI Improvements developed by [@lj3954](https://github.com/lj3954)
-- 2024/09 - Cargo Publish, AUR, Rust, and Bash additions done by [@adamperkowski](https://github.com/adamperkowski)
+- 2024/09 - Cargo Publish, AUR, Rust, and Bash additions done by [@koibtw](https://github.com/koibtw)
 - 2024/09 - Rust TUI Min/Max, MultiSelection, and Bash additions done by [@jeevithakannan2](https://github.com/jeevithakannan2)
 - 2024/09 - Various bash updates and standardization done by [@nnyyxxxx](https://github.com/nnyyxxxx)
 - 2024/09 - Multiple bash script additions done by [@guruswarupa](https://github.com/guruswarupa)
